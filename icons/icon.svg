@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3f8a4c"/>
+      <stop offset="1" stop-color="#1f4a2a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- svampsilhuett: hatt + fot -->
+  <g fill="#f6f4ec">
+    <path d="M96 288C96 186 164 112 256 112s160 74 160 176c0 14-10 24-24 24H120c-14 0-24-10-24-24z"/>
+    <path d="M206 322h100c-2 40 8 74 26 102 4 7-1 16-9 16H189c-8 0-13-9-9-16 18-28 28-62 26-102z"/>
+  </g>
+</svg>
