@@ -150,7 +150,7 @@ for i, px in enumerate([posts_xy[0][0], posts_xy[2][0]], 1):
 n = int((DEPTH - JOIST_W) // JOIST_S) + 1
 for k in range(n):
     y = JOIST_W / 2 + k * JOIST_S
-    j = element("IfcMember", f"Bjälke 220x45 c600 #{k+1}", "MEMBER", "Konstruktionsvirke C30", {"Dimension": "220x45 mm", "Hållfasthetsklass": "C30", "Centrumavstånd": "600 mm"})
+    j = element("IfcBeam", f"Bjälke 220x45 c600 #{k+1}", "JOIST", "Konstruktionsvirke C30", {"Dimension": "220x45 mm", "Hållfasthetsklass": "C30", "Centrumavstånd": "600 mm"})
     extrude(j, rect(JOIST_W, JOIST_H), L / C, TIMBER)
     zc = zb(0) + (JOIST_H / 2) / C
     place(j, mat4((X0, y, zc), (0, 1, 0), (C, 0, S)))
@@ -171,19 +171,38 @@ place(slab, mat4((X0, 0.0, zb(0) + JOIST_H / C), (C, 0, S), (-S, 0, C)))
 run("aggregate.assign_object", products=[slab], relating_object=roof)
 run("spatial.assign_container", products=[roof], relating_structure=sto)
 
-# ---------------- fascia / beklädnad, sågad ek ----------------
-def cladding(name):
-    return element("IfcCovering", name, "CLADDING", "Sågad ek, oljad", {"Beklädnad": "Sågad ek. Oljas in.", "Höjd": "440 mm"})
+# ---------------- fascia / beklädnad, sågad ek (IfcWall med snedskurna över-/underkant) ----------------
+def clip(solid, loc_z, flag):
+    """Skär bort halvrymd under (flag=True) eller över (flag=False) planet genom (0,0,loc_z) med normal (-S,0,C)."""
+    pl = f.create_entity("IfcPlane", Position=f.create_entity("IfcAxis2Placement3D",
+         Location=f.create_entity("IfcCartesianPoint", Coordinates=(0., 0., loc_z)),
+         Axis=f.create_entity("IfcDirection", DirectionRatios=(-S, 0., C)),
+         RefDirection=f.create_entity("IfcDirection", DirectionRatios=(C, 0., S))))
+    return f.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=solid,
+                           SecondOperand=f.create_entity("IfcHalfSpaceSolid", BaseSurface=pl, AgreementFlag=flag))
+
+def fascia_wall(name, x0, y0, w, d, sloped):
+    wl = element("IfcWall", name, "STANDARD", "Sågad ek, oljad", {"Beklädnad": "Sågad ek. Oljas in.", "Höjd": "440 mm", "Funktion": "Fascia/takkantsbeklädnad"})
+    if sloped:
+        h = dz + FASCIA_H + 0.05
+        solid = extrude(wl, rect(w, d, (w / 2, d / 2)), h, OAK)
+        solid2 = clip(solid, -0.0, True)           # bort under underkant bjälklag
+        solid3 = clip(solid2, FASCIA_H / C, False)  # bort över överkant fascia
+        rep = wl.Representation.Representations[0]
+        rep.Items = [solid3]
+        rep.RepresentationType = "Clipping"
+        place(wl, mat4((x0, y0, zb(0)), (1, 0, 0), (0, 0, 1)))
+    else:
+        extrude(wl, rect(w, d, (w / 2, d / 2)), FASCIA_H, OAK)
+        place(wl, mat4((x0, y0, zb(x0 - X0 + w / 2)), (1, 0, 0), (0, 0, 1)))
+    run("pset.edit_pset", pset=run("pset.add_pset", product=wl, name="Pset_WallCommon"), properties={"IsExternal": True, "LoadBearing": False})
+    return wl
 
 dz = zb(L) - zb(0)
-for nm, y0 in (("Fascia söder", FASCIA_T), ("Fascia norr", DEPTH)):
-    cov = cladding(nm)
-    extrude(cov, poly([(0, 0), (L, dz), (L, dz + FASCIA_H), (0, FASCIA_H)]), FASCIA_T, OAK)
-    place(cov, mat4((X0, y0, zb(0)), (1, 0, 0), (0, -1, 0)))   # lokal y = uppåt, extrusion mot -y
-for nm, x0 in (("Fascia vänster gavel", X0), ("Fascia höger gavel", X0 + L - FASCIA_T)):
-    cov = cladding(nm)
-    extrude(cov, rect(FASCIA_T, DEPTH, (FASCIA_T / 2, DEPTH / 2)), FASCIA_H, OAK)
-    place(cov, mat4((x0, 0.0, zb(x0 - X0 + FASCIA_T / 2)), (1, 0, 0), (0, 0, 1)))
+fascia_wall("Fascia söder", X0, 0.0, L, FASCIA_T, True)
+fascia_wall("Fascia norr", X0, DEPTH - FASCIA_T, L, FASCIA_T, True)
+fascia_wall("Fascia vänster gavel", X0, 0.0, FASCIA_T, DEPTH, False)
+fascia_wall("Fascia höger gavel", X0 + L - FASCIA_T, 0.0, FASCIA_T, DEPTH, False)
 
 # ---------------- integrerat stuprör (bakom pelare nära stenkistan) ----------------
 pipe_cls = "IfcPipeSegment" if IFC4 else "IfcFlowSegment"
@@ -192,9 +211,26 @@ extrude(pipe, f.create_entity("IfcCircleProfileDef", ProfileType="AREA", Radius=
 place(pipe, mat4((posts_xy[0][0] - POST / 2 - 0.03, posts_xy[0][1], 0.0), (1, 0, 0), (0, 0, 1)))
 
 # ---------------- stenkista (mått delvis antagna) ----------------
-sk = element("IfcBuildingElementProxy", "Stenkista", None, "Makadam", {"Bredd": "600 mm (A-40-1-100)", "Längd/djup": "antagna 800 x 600 mm - verifiera"})
+sk = element("IfcSlab", "Stenkista", "BASESLAB", "Makadam", {"Bredd": "600 mm (A-40-1-100)", "Längd/djup": "antagna 800 x 600 mm - verifiera"})
 extrude(sk, rect(0.6, 0.8, (0.3, 0.4)), 0.6, GRAV)
 place(sk, mat4((0.0, -0.8, -0.6), (1, 0, 0), (0, 0, 1)))
+
+# ---------------- typobjekt per kategori (ger familjer/typer i Revit och ArchiCAD) ----------------
+def types(cls, groups):
+    for nm, pred, els in groups:
+        els = [e for e in els if e]
+        if not els: continue
+        kw = {"ifc_class": cls, "name": nm}
+        if pred and IFC4: kw["predefined_type"] = pred
+        try: te = run("root.create_entity", **kw)
+        except RuntimeError: continue  # typklassen finns ej i IFC2x3
+        run("type.assign_type", related_objects=els, relating_type=te)
+by = lambda cls, pre: [e for e in f.by_type(cls) if e.Name.startswith(pre)]
+types("IfcColumnType", [("Träpelare 90x90", "COLUMN", by("IfcColumn", "Träpelare"))])
+types("IfcBeamType", [("Bärlina GL30c 360x90", "BEAM", by("IfcBeam", "Bärlina")), ("Bjälke 220x45 C30", "JOIST", by("IfcBeam", "Bjälke"))])
+types("IfcFootingType", [("Betongplint KP 500", "PAD_FOOTING", by("IfcFooting", "Betongplint"))])
+types("IfcWallType", [("Fascia sågad ek 440", "STANDARD", by("IfcWall", "Fascia"))])
+types("IfcSlabType", [("Sedumtak", "ROOF", by("IfcSlab", "Sedumtak")), ("Stenkista", "BASESLAB", by("IfcSlab", "Stenkista"))])
 
 # ---------------- projektinfo ----------------
 add_pset(project, {"Fastighet": "Andreas 12", "Adress": "Gryningsvägen 14, 163 51 Spånga", "Ritningar": "A-01-1-001 rev A, A-40-1-100 rev B",
