@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep", "Edit", "Write",
+      "Bash(node test/*)", "Bash(python3 -m http.server*)",
+      "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)",
+      "Bash(git add*)", "Bash(git commit*)"
+    ],
+    "ask": [
+      "Bash(git push*)", "Bash(rm *)", "Bash(sudo *)",
+      "Bash(curl *)", "Bash(bash install-*)", "WebFetch"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.gnupg/**)",
+      "Read(**/.env*)", "Read(~/Library/Keychains/**)",
+      "Read(~/Library/Application Support/Google/Chrome/**)",
+      "Bash(rm -rf /*)", "Bash(rm -rf ~*)", "Bash(git push --force*)",
+      "Bash(curl * | bash)", "Bash(curl * | sh)"
+    ]
+  }
+}

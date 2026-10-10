@@ -1,5 +1,6 @@
 (function () {
   const SV = window.SV, cfg = SV.config, $ = id => document.getElementById(id);
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MANAD = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 
   // ---------- Karta ----------
@@ -25,9 +26,9 @@
   SV.species.forEach(s => art.add(new Option(s.namn, s.id)));
   function visaArt() {
     const s = SV.speciesById(art.value);
-    $('artInfo').innerHTML = `<i>${s.latin}</i> · säsong ${MANAD[s.manader[0] - 1]}–${MANAD[s.manader.at(-1) - 1]}` +
+    $('artInfo').innerHTML = `<i>${esc(s.latin)}</i> · säsong ${MANAD[s.manader[0] - 1]}–${MANAD[s.manader.at(-1) - 1]}` +
       (SV.iSasong(s) ? ' (<b>i säsong nu</b>)' : ' (ej i säsong nu)') +
-      `<br>${s.not}<br><a href="${SV.svampguidenUrl(s)}" target="_blank" rel="noopener">Läs mer på Svampguiden</a>`;
+      `<br>${esc(s.not)}<br><a href="${esc(SV.svampguidenUrl(s))}" target="_blank" rel="noopener">Läs mer på Svampguiden</a>`;
   }
   art.onchange = visaArt; visaArt();
   $('grid').oninput = e => $('gridVal').textContent = e.target.value;
@@ -185,15 +186,15 @@
   function openPopup(latlng, cell, species, jord, shares, p) {
     const el = document.createElement('div'); el.className = 'pop';
     const gm = `https://www.google.com/maps/@${cell.lat.toFixed(6)},${cell.lon.toFixed(6)},250m/data=!3m1!1e3`;
-    el.innerHTML = `<b>${SV.betyg(p.total)} chans – ${species.namn}</b>
+    el.innerHTML = `<b>${esc(SV.betyg(p.total))} chans – ${esc(species.namn)}</b>
       <table>
-        <tr><td>Jordart</td><td>${SV.JORD_NAMN[jord]} (passar ${pct(p.jord)})</td></tr>
+        <tr><td>Jordart</td><td>${esc(SV.JORD_NAMN[jord])} (passar ${pct(p.jord)})</td></tr>
         <tr><td>Skogstyp</td><td>${current ? `gran ${pct(shares.gran)}, tall ${pct(shares.tall)}, löv ${pct(shares.lov)}, öppet ${pct(shares.oppen)}` : 'manuellt vald'} (passar ${pct(p.skog)})</td></tr>
       </table>`;
     if (current) { el.appendChild(cropCanvas(current, cell)); }
     el.insertAdjacentHTML('beforeend', `<a href="${gm}" target="_blank" rel="noopener">Google Maps satellit</a>
       <a href="https://www.google.com/maps?q=&layer=c&cbll=${cell.lat},${cell.lon}" target="_blank" rel="noopener">Street View</a>
-      <a href="${SV.svampguidenUrl(species)}" target="_blank" rel="noopener">Svampguiden</a>
+      <a href="${esc(SV.svampguidenUrl(species))}" target="_blank" rel="noopener">Svampguiden</a>
       <br><small>Kontrollera skogstypen visuellt – färgklassningen är en grov gissning.</small>`);
     L.popup({ minWidth: 250 }).setLatLng(latlng).setContent(el).openOn(map);
   }
